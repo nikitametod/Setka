@@ -1,0 +1,30 @@
+# --- система ---
+.DS_Store
+
+# --- сборки (выкладываются только в Releases, не в код) ---
+*.app
+*.dmg
+*.apk
+*.aab
+dist/
+build/
+
+# --- резервные копии ---
+*.bak
+*.bak[0-9]*
+backup-*/
+
+# --- ключи подписи и пароли: никогда не в репозиторий ---
+*.jks
+*.keystore
+*.p12
+*.pem
+keystore.properties
+
+# --- Android Studio ---
+.gradle/
+.kotlin/
+.idea/
+*.iml
+local.properties
+captures/
