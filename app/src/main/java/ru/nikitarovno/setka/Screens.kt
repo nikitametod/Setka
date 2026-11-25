@@ -403,8 +403,17 @@ fun MenuSheet(vm: LauncherViewModel) {
             title = "Разделитель"
             if (sp != null) {
                 actions += "Название…" to { vm.renameSpacerId = m.id }
+                actions += "Убрать пустые места" to { vm.compactBlock(m.id) }
+                actions += "По алфавиту" to { vm.sortBlock(m.id) }
             }
-            actions += "Удалить" to { vm.removeItem(m.id) }
+            // Удаление: что делать с иконками блока — выбираешь сам
+            actions += "Удалить, иконки оставить на месте" to { vm.removeItem(m.id) }
+            actions += "Удалить, иконки в конец экрана" to { vm.removeSpacerMoveToEnd(m.id) }
+        }
+        is MenuTarget.Empty -> {
+            title = "Рабочий стол"
+            actions += "Редактор" to { vm.editorOpen = true }
+            actions += "Настройки" to { vm.settingsOpen = true }
         }
         is MenuTarget.FolderApp -> {
             title = vm.labelOf(m.key)
@@ -478,7 +487,7 @@ fun MenuSheet(vm: LauncherViewModel) {
             for ((label, action) in actions) {
                 T(
                     label, size = 17f, weight = FontWeight.Medium,
-                    color = if (label == "Удалить") Color(0xFFFF6B6B) else Color.White,
+                    color = if (label.startsWith("Удалить")) Color(0xFFFF6B6B) else Color.White,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {

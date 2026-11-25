@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -21,7 +23,7 @@ android {
     // (storeFile, storePassword, keyAlias, keyPassword) — подписываем им, иначе отладочным.
     // Сам ключ и keystore.properties в репозиторий не попадают (.gitignore).
     val ksFile = rootProject.file("keystore.properties")
-    val ks = java.util.Properties().apply { if (ksFile.exists()) ksFile.inputStream().use { load(it) } }
+    val ks = Properties().apply { if (ksFile.exists()) ksFile.inputStream().use { load(it) } }
     signingConfigs {
         if (ksFile.exists()) create("release") {
             storeFile = rootProject.file(ks.getProperty("storeFile"))

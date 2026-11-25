@@ -62,10 +62,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     var renameAppKey by mutableStateOf<String?>(null)
     var renameSpacerId by mutableStateOf<String?>(null)
     var pickFolderFor by mutableStateOf<String?>(null)
+    var editorOpen by mutableStateOf(false)
 
     /** Открыто что-то, что перехватывает касания (меню, настройки, поиск, диалог). */
     val modalOpen: Boolean
-        get() = searchOpen || settingsOpen || menu != null || pickFolderFor != null ||
+        get() = searchOpen || settingsOpen || editorOpen || menu != null || pickFolderFor != null ||
             renameFolderId != null || renameAppKey != null || renameSpacerId != null
 
     private val callback = object : LauncherApps.Callback() {
@@ -289,6 +290,80 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         var end = start + 1
         while (end < items.size && !items[end].isRowSpacer()) end++
         return items.subList(start, end).map { it.id }
+    }
+
+    /** Убрать пустые клетки в блоке под разделителем — иконки встают подряд, порядок сохраняется. */
+    fun compactBlock(spacerId: String) = rewriteBlock(spacerId) { body -> body.filterNot { it.isHole() } }
+
+    /** Иконки блока по алфавиту (без пустых клеток). */
+    fun sortBlock(spacerId: String) = rewriteBlock(spacerId) { body ->
+        body.filterNot { it.isHole() }.sortedBy { nameOf(it).lowercase() }
+    }
+
+    /**
+     * Редактор: перенести выбранные ряды целиком перед рядом, который начинается с beforeId
+     * (null — в самый конец). Неполные ряды добиваются пустыми клетками, чтобы ряды не слипались.
+     */
+    fun moveRows(rows: List<List<String>>, beforeId: String?) {
+        val cols = settings.columns
+        val moveIds = rows.flatten().toSet()
+        if (moveIds.isEmpty() || (beforeId != null && beforeId in moveIds)) return
+        val byId = items.associateBy { it.id }
+        val rest = items.filter { it.id !in moveIds }.toMutableList()
+        var at = if (beforeId == null) rest.size else rest.indexOfFirst { it.id == beforeId }.let { if (it < 0) rest.size else it }
+        // Вставка должна начинаться с нового ряда
+        var col = 0
+        var j = at - 1
+        while (j >= 0 && !rest[j].isRowSpacer()) { col++; j-- }
+        col %= cols
+        if (col != 0) repeat(cols - col) { rest.add(at, newHole()); at++ }
+        val block = ArrayList<HomeItem>()
+        for (r in rows) {
+            val its = r.mapNotNull { byId[it] }
+            block += its
+            if (its.isNotEmpty() && its.none { it.isRowSpacer() } && its.size % cols != 0) {
+                repeat(cols - its.size % cols) { block += newHole() }
+            }
+        }
+        rest.addAll(at, block)
+        items = trimHoles(rest)
+        save()
+    }
+
+    /** Редактор: перенести выбранные иконки на место beforeId (null — в конец). Откуда взяли — остаются пустые клетки. */
+    fun moveItems(ids: List<String>, beforeId: String?) {
+        if (ids.isEmpty() || (beforeId != null && beforeId in ids)) return
+        val keys = items.map { it.id }
+        val ins = if (beforeId == null) keys.size else keys.indexOf(beforeId).let { if (it < 0) keys.size else it }
+        dropOnHome(ids, null, ins, null, keys)
+    }
+
+    /** Удалить разделитель, а иконки его блока перенести в самый конец экрана (без пустых клеток). */
+    fun removeSpacerMoveToEnd(spacerId: String) {
+        val start = items.indexOfFirst { it.id == spacerId }
+        if (start < 0) return
+        var end = start + 1
+        while (end < items.size && !items[end].isRowSpacer()) end++
+        val body = items.subList(start + 1, end).filterNot { it.isHole() }
+        val rest = items.subList(0, start) + items.subList(end, items.size)
+        items = trimHoles(rest + body)
+        save()
+    }
+
+    private fun nameOf(i: HomeItem) = when (i) {
+        is AppItem -> labelOf(i.key)
+        is FolderItem -> i.name
+        is SpacerItem -> ""
+    }
+
+    private fun rewriteBlock(spacerId: String, f: (List<HomeItem>) -> List<HomeItem>) {
+        val start = items.indexOfFirst { it.id == spacerId }
+        if (start < 0) return
+        var end = start + 1
+        while (end < items.size && !items[end].isRowSpacer()) end++
+        val body = f(items.subList(start + 1, end).toList())
+        items = items.subList(0, start + 1) + body + items.subList(end, items.size)
+        save()
     }
 
     /**
@@ -554,6 +629,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     fun closeOverlays() {
         menu = null
+        if (editorOpen) {
+            editorOpen = false
+            return
+        }
         pickFolderFor = null
         renameFolderId = null
         renameAppKey = null

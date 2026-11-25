@@ -51,6 +51,8 @@ sealed interface MenuTarget {
     data class Folder(val id: String) : MenuTarget
     data class FolderApp(val folderId: String, val key: String) : MenuTarget
     data class Spacer(val id: String) : MenuTarget
+    /** Долгий тап по пустому месту главного экрана. */
+    object Empty : MenuTarget
 }
 
 enum class LabelMode { TWO_LINES, MARQUEE }

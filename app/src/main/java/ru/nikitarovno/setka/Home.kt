@@ -237,7 +237,7 @@ fun HomeScreen(vm: LauncherViewModel) {
                 if (outsidePanel || startIdx < 0 || snap.keys[startIdx] == PLACEHOLDER || isHoleId(snap.keys[startIdx])) {
                     if (!outsidePanel && folderId == null) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        vm.settingsOpen = true
+                        vm.menu = MenuTarget.Empty
                     }
                     while (true) {
                         val ev = awaitPointerEvent()
@@ -374,13 +374,21 @@ fun HomeScreen(vm: LauncherViewModel) {
                         if (growKey != gk) {
                             growKey = gk
                             growSince = now
-                        } else if (now - growSince > 220) {
+                        } else if (now - growSince > 450) {
                             drag.growRows = if (drag.growBlock == b) drag.growRows + 1 else 1
                             drag.growBlock = b
                             growKey = -1
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
-                    } else growKey = -1
+                    } else {
+                        growKey = -1
+                        // Ушёл в другой блок — добавленные ряды убираем, остальное не двигается
+                        if (drag.growBlock >= 0 && pl.w <= sn.cellW + 1f &&
+                            blockIndexOf(sn.places, sn.cellW, i) != drag.growBlock) {
+                            drag.growBlock = -1
+                            drag.growRows = 0
+                        }
+                    }
                     if (isHoleId(k)) {
                         // Пустая клетка — встаём ровно в неё
                         drag.merge = null
@@ -543,6 +551,9 @@ fun HomeScreen(vm: LauncherViewModel) {
 
             // ---------- Папка-панель ----------
             FolderPanel(vm, folder, drag, folderSnap, s, cellW, cellH, cellWpx, cellHpx, screenH)
+
+            // ---------- Редактор рядов ----------
+            EditorOverlay(vm, s, cellH)
 
             // ---------- Пачка на пальце ----------
             if (drag.active) {
